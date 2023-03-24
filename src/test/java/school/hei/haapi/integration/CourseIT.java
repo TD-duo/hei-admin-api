@@ -13,7 +13,7 @@ import school.hei.haapi.SentryConf;
 import school.hei.haapi.endpoint.rest.api.TeachingApi;
 import school.hei.haapi.endpoint.rest.client.ApiClient;
 import school.hei.haapi.endpoint.rest.client.ApiException;
-import school.hei.haapi.endpoint.rest.model.*;
+import school.hei.haapi.endpoint.rest.model.Order;
 import school.hei.haapi.endpoint.rest.security.cognito.CognitoComponent;
 import school.hei.haapi.integration.conf.AbstractContextInitializer;
 import school.hei.haapi.integration.conf.TestUtils;
@@ -23,7 +23,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
-import static school.hei.haapi.integration.TeacherIT.*;
+import static school.hei.haapi.integration.TeacherIT.teacher1;
+import static school.hei.haapi.integration.TeacherIT.teacher2;
 import static school.hei.haapi.integration.conf.TestUtils.*;
 
 @SpringBootTest(webEnvironment = RANDOM_PORT)
@@ -42,8 +43,8 @@ public class CourseIT {
     return TestUtils.anApiClient(token, ContextInitializer.SERVER_PORT);
   }
 
-  public static Course course1() {
-    Course course = new Course();
+  public static school.hei.haapi.endpoint.rest.model.Course course1() {
+    school.hei.haapi.endpoint.rest.model.Course course = new school.hei.haapi.endpoint.rest.model.Course();
     course.setId("course1_id");
     course.setCode("PROG1");
     course.setName("Algorithms");
@@ -53,8 +54,8 @@ public class CourseIT {
     return course;
   }
 
-  public static Course course2() {
-    Course course = new Course();
+  public static school.hei.haapi.endpoint.rest.model.Course course2() {
+    school.hei.haapi.endpoint.rest.model.Course course = new school.hei.haapi.endpoint.rest.model.Course();
     course.setId("course2_id");
     course.setCode("WEB1");
     course.setName("Web interface locally interactive");
@@ -64,8 +65,8 @@ public class CourseIT {
     return course;
   }
 
-  public static Course course3() {
-    Course course = new Course();
+  public static school.hei.haapi.endpoint.rest.model.Course course3() {
+    school.hei.haapi.endpoint.rest.model.Course course = new school.hei.haapi.endpoint.rest.model.Course();
     course.setId("course3_id");
     course.setCode("WEB2");
     course.setName("UI/UX");
@@ -85,7 +86,7 @@ public class CourseIT {
     ApiClient apiClient = anApiClient(STUDENT1_TOKEN);
     TeachingApi api = new TeachingApi(apiClient);
 
-    List<Course> actual = api.getCourses(1, 15, null, null, null,
+    List<school.hei.haapi.endpoint.rest.model.Course> actual = api.getCourses(1, 15, null, null, null,
             null, null, null, null);
 
     assertEquals(3, actual.size());
@@ -96,7 +97,7 @@ public class CourseIT {
     ApiClient apiClient = anApiClient(MANAGER1_TOKEN);
     TeachingApi api = new TeachingApi(apiClient);
 
-    List<Course> actual = api.getCourses(1, 15, null, null, null,
+    List<school.hei.haapi.endpoint.rest.model.Course> actual = api.getCourses(1, 15, null, null, null,
             null, null, null, null);
 
     assertEquals(3, actual.size());
@@ -142,18 +143,85 @@ public class CourseIT {
 
   @Test
   void student_read_sorted_by_credits_desc() throws ApiException {
+      ApiClient apiClient = anApiClient(STUDENT1_TOKEN);
+      TeachingApi api = new TeachingApi(apiClient);
+
+      List<school.hei.haapi.endpoint.rest.model.Course> actual = api.getCourses(1, 15, null, null, null,
+              null, null, Order.DESC, null);
+
+      assertEquals(3, actual.size());
+      assertEquals(course3(), actual.get(0));
+      assertEquals(course1(), actual.get(1));
+      assertEquals(course2(), actual.get(2));
+    }
+  @Test
+  void student_read_sorted_by_code_asc() throws ApiException {
     ApiClient apiClient = anApiClient(STUDENT1_TOKEN);
     TeachingApi api = new TeachingApi(apiClient);
 
-    List<Course> actual = api.getCourses(1, 15, null, null, null,
-            null, null, Order.DESC, null);
+    List<school.hei.haapi.endpoint.rest.model.Course> actual = api.getCourses(1, 15, null, null, null,
+            null, null, null, Order.ASC);
 
     assertEquals(3, actual.size());
-    assertEquals(course3(), actual.get(0));
-    assertEquals(course1(), actual.get(1));
-    assertEquals(course2(), actual.get(2));
+    assertEquals(course1(), actual.get(0));
+    assertEquals(course2(), actual.get(1));
+    assertEquals(course3(), actual.get(2));
   }
 
+  @Test
+  void student_read_ko_invalid_credentials() {
+    ApiClient apiClient = anApiClient(BAD_TOKEN);
+    TeachingApi api = new TeachingApi(apiClient);
+
+    assertThrowsApiException(
+            "{\"type\":\"401 UNAUTHORIZED\",\"message\":\"Full authentication is required to access this resource\"}",
+            () -> api.getCourses(1, 15, null, null, null,
+                    null, null, null, null));
+  }
+
+  @Test
+  void student_read_ko_invalid_page() {
+    ApiClient apiClient = anApiClient(STUDENT1_TOKEN);
+    TeachingApi api = new TeachingApi(apiClient);
+
+    assertThrowsApiException(
+            "{\"type\":\"400 BAD_REQUEST\",\"message\":\"page value must be >=1\"}",
+            () -> api.getCourses(-1, 15, null, null, null,
+                    null, null, null, null));
+  }
+
+  @Test
+  void student_read_ko_invalid_page_size() {
+    ApiClient apiClient = anApiClient(STUDENT1_TOKEN);
+    TeachingApi api = new TeachingApi(apiClient);
+
+    assertThrowsApiException(
+            "{\"type\":\"400 BAD_REQUEST\",\"message\":\"page size value must be between 5 and 20\"}",
+            () -> api.getCourses(1, 4, null, null, null,
+                    null, null, null, null));
+  }
+
+  @Test
+  void student_read_ko_no_results() {
+    ApiClient apiClient = anApiClient(STUDENT1_TOKEN);
+    TeachingApi api = new TeachingApi(apiClient);
+
+    assertThrowsApiException(
+            "{\"type\":\"404 NOT_FOUND\",\"message\":\"No courses found\"}",
+            () -> api.getCourses(2, 15, null, null, null,
+                    null, null, null, null));
+  }
+
+  @Test
+  void student_read_ko_invalid_teacher_name() {
+    ApiClient apiClient = anApiClient(STUDENT1_TOKEN);
+    TeachingApi api = new TeachingApi(apiClient);
+
+    assertThrowsApiException(
+            "{\"type\":\"400 BAD_REQUEST\",\"message\":\"Invalid teacher name\"}",
+            () -> api.getCourses(1, 15, null, null, null,
+                    "123", "Smith", null, null));
+  }
   static class ContextInitializer extends AbstractContextInitializer {
     public static final int SERVER_PORT = anAvailableRandomPort();
 

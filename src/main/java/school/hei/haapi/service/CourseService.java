@@ -8,7 +8,6 @@ import school.hei.haapi.model.BoundedPageSize;
 import school.hei.haapi.model.Course;
 import school.hei.haapi.model.PageFromOne;
 import school.hei.haapi.repository.CourseRepository;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +22,7 @@ public class CourseService {
             page.getValue() - 1, pageSize.getValue());
     return repository.findAll(pageable).getContent();
   }
+
 
   public static List<Course> getCourses(List<Course> courses, String code, String name, int credits, String teacherFirstName, String teacherLastName) {
     List<Course> filteredCourses = new ArrayList<Course>();

@@ -1,6 +1,9 @@
 package school.hei.haapi.integration;
 
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -8,13 +11,9 @@ import org.springframework.test.context.ContextConfiguration;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import school.hei.haapi.SentryConf;
 import school.hei.haapi.endpoint.rest.api.TeachingApi;
-import school.hei.haapi.endpoint.rest.api.UsersApi;
 import school.hei.haapi.endpoint.rest.client.ApiClient;
 import school.hei.haapi.endpoint.rest.client.ApiException;
-import school.hei.haapi.endpoint.rest.model.Course;
-import school.hei.haapi.endpoint.rest.model.CourseStatus;
-import school.hei.haapi.endpoint.rest.model.CrupdateCourse;
-import school.hei.haapi.endpoint.rest.model.UpdateStudentCourse;
+import school.hei.haapi.endpoint.rest.model.*;
 import school.hei.haapi.endpoint.rest.security.cognito.CognitoComponent;
 import school.hei.haapi.integration.conf.AbstractContextInitializer;
 import school.hei.haapi.integration.conf.TestUtils;
@@ -53,13 +52,6 @@ public class CourseIT {
     course.setMainTeacher(teacher1());
     return course;
   }
-  
-  public static UpdateStudentCourse studentCourse1() {
-    UpdateStudentCourse updateStudentCourse = new UpdateStudentCourse();
-    updateStudentCourse.setCourseId("course1_id");
-    updateStudentCourse.setStatus(CourseStatus.LINKED);
-    return updateStudentCourse;
-  }
 
   public static Course course2() {
     Course course = new Course();
@@ -83,75 +75,6 @@ public class CourseIT {
     return course;
   }
 
-  public static UpdateStudentCourse updateStudentCourse3() {
-    UpdateStudentCourse updateStudentCourse = new UpdateStudentCourse();
-    updateStudentCourse.setCourseId("course3_id");
-    updateStudentCourse.setStatus(CourseStatus.LINKED);
-    return updateStudentCourse;
-  }
-
-  public static CrupdateCourse toCreateSuccess() {
-    CrupdateCourse toCreate = new CrupdateCourse();
-    toCreate.setId(null);
-    toCreate.setCode("PROG2P1");
-    toCreate.setName("Object Oriented Programming");
-    toCreate.setCredits(8);
-    toCreate.setTotalHours(15);
-    toCreate.setMainTeacherId(teacher3().getId());
-    return toCreate;
-  }
-
-  public static CrupdateCourse toCreateWithSomeNullValues() {
-    CrupdateCourse toCreate = new CrupdateCourse();
-    toCreate.setId(null);
-    toCreate.setCode("PROG3P1");
-    toCreate.setName(null);
-    toCreate.setCredits(12);
-    toCreate.setTotalHours(22);
-    toCreate.setMainTeacherId(null);
-    return toCreate;
-  }
-
-  public static CrupdateCourse toUpdateCourse() {
-    return new CrupdateCourse()
-        .id(course2().getId())
-        .name(course2().getName())
-        .code(course2().getCode())
-        .credits(course2().getCredits())
-        .totalHours(course2().getTotalHours())
-        .mainTeacherId(teacher3().getId());
-  }
-
-  public static CrupdateCourse toCreateWithDuplicatedCode() {
-    CrupdateCourse toCreate = new CrupdateCourse();
-    toCreate.setCode("PROG3P1");
-    toCreate.setName("Complexity Analysis");
-    toCreate.setCredits(8);
-    toCreate.setTotalHours(15);
-    toCreate.setMainTeacherId(null);
-    return toCreate;
-  }
-
-  public static Course CreatedCourse1() {
-    Course createdCourse1 = new Course();
-    createdCourse1.setName(toCreateSuccess().getName());
-    createdCourse1.setCode(toCreateSuccess().getCode());
-    createdCourse1.setCredits(toCreateSuccess().getCredits());
-    createdCourse1.setTotalHours(toCreateSuccess().getTotalHours());
-    createdCourse1.setMainTeacher(teacher3());
-    return createdCourse1;
-  }
-
-  public static Course CreatedCourse2() {
-    Course createdCourse2 = new Course();
-    createdCourse2.setName(null);
-    createdCourse2.setCode(toCreateWithSomeNullValues().getCode());
-    createdCourse2.setCredits(toCreateWithSomeNullValues().getCredits());
-    createdCourse2.setTotalHours(toCreateWithSomeNullValues().getTotalHours());
-    createdCourse2.setMainTeacher(null);
-    return createdCourse2;
-  }
-
   @BeforeEach
   public void setUp() {
     setUpCognito(cognitoComponent);
@@ -168,9 +91,45 @@ public class CourseIT {
     assertEquals(3, actual.size());
     assertTrue(actual.contains(course3()));
   }
+  @Test
+  void manager_read_ok() throws ApiException {
+    ApiClient apiClient = anApiClient(MANAGER1_TOKEN);
+    TeachingApi api = new TeachingApi(apiClient);
+
+    List<Course> actual = api.getCourses(1, 15, null, null, null,
+            null, null, null, null);
+
+    assertEquals(3, actual.size());
+    assertTrue(actual.contains(course1()));
+    assertTrue(actual.contains(course2()));
+    assertTrue(actual.contains(course3()));
+  }
 
   @Test
-  void teacher_read_ko() throws ApiException {
+  void student_read_in_default_order_ok() throws ApiException {
+    ApiClient apiClient = anApiClient(STUDENT1_TOKEN);
+    TeachingApi api = new TeachingApi(apiClient);
+
+    List<school.hei.haapi.endpoint.rest.model.Course> actual = api.getCourses(1, 15,
+            null, null, null, null, null,
+            Order.ASC, Order.ASC);
+
+    assertEquals(3, actual.size());
+    assertTrue(actual.contains(course3()));
+  }
+
+  @Test
+  void teacher_read_with_invalid_page_ko() {
+    ApiClient apiClient = anApiClient(TEACHER1_TOKEN);
+    TeachingApi api = new TeachingApi(apiClient);
+
+    assertThrowsApiException(
+            "{\"type\":\"400 BAD_REQUEST\",\"message\":\"page value must be >=1\"}",
+            () -> api.getCourses((-1), 15,
+                    null, null, null, null, null, null, null));
+  }
+  @Test
+  void teacher_read_ko() {
     ApiClient apiClient = anApiClient(TEACHER1_TOKEN);
     TeachingApi api = new TeachingApi(apiClient);
 
@@ -178,6 +137,21 @@ public class CourseIT {
             "{\"type\":\"400 BAD_REQUEST\",\"message\":\"page value must be >=1\"}",
             () -> api.getCourses(-1, 15, null, null, null,
                     null, null, null, null));
+  }
+
+
+  @Test
+  void student_read_sorted_by_credits_desc() throws ApiException {
+    ApiClient apiClient = anApiClient(STUDENT1_TOKEN);
+    TeachingApi api = new TeachingApi(apiClient);
+
+    List<Course> actual = api.getCourses(1, 15, null, null, null,
+            null, null, Order.DESC, null);
+
+    assertEquals(3, actual.size());
+    assertEquals(course3(), actual.get(0));
+    assertEquals(course1(), actual.get(1));
+    assertEquals(course2(), actual.get(2));
   }
 
   static class ContextInitializer extends AbstractContextInitializer {

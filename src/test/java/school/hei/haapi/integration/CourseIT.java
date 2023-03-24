@@ -61,13 +61,6 @@ public class CourseIT {
     return updateStudentCourse;
   }
 
-  public static UpdateStudentCourse studentCourse2() {
-    UpdateStudentCourse updateStudentCourse = new UpdateStudentCourse();
-    updateStudentCourse.setCourseId("course2_id");
-    updateStudentCourse.setStatus(CourseStatus.LINKED);
-    return updateStudentCourse;
-  }
-
   public static Course course2() {
     Course course = new Course();
     course.setId("course2_id");
@@ -77,6 +70,24 @@ public class CourseIT {
     course.setTotalHours(20);
     course.setMainTeacher(teacher2());
     return course;
+  }
+
+  public static Course course3() {
+    Course course = new Course();
+    course.setId("course3_id");
+    course.setCode("WEB2");
+    course.setName("UI/UX");
+    course.setCredits(10);
+    course.setTotalHours(20);
+    course.setMainTeacher(teacher2());
+    return course;
+  }
+
+  public static UpdateStudentCourse updateStudentCourse3() {
+    UpdateStudentCourse updateStudentCourse = new UpdateStudentCourse();
+    updateStudentCourse.setCourseId("course3_id");
+    updateStudentCourse.setStatus(CourseStatus.LINKED);
+    return updateStudentCourse;
   }
 
   public static CrupdateCourse toCreateSuccess() {
@@ -147,14 +158,26 @@ public class CourseIT {
   }
 
   @Test
-  void manager_read_ok() throws ApiException {
-    ApiClient apiClient = anApiClient(MANAGER1_TOKEN);
+  void student_read_ok() throws ApiException {
+    ApiClient apiClient = anApiClient(STUDENT1_TOKEN);
     TeachingApi api = new TeachingApi(apiClient);
 
-    List<Course> actual = api.getCourses(1, 15);
+    List<Course> actual = api.getCourses(1, 15, null, null, null,
+            null, null, null, null);
 
-    assertEquals(5, actual.size());
-    assertTrue(actual.containsAll(List.of(course1(), course2())));
+    assertEquals(3, actual.size());
+    assertTrue(actual.contains(course3()));
+  }
+
+  @Test
+  void teacher_read_ko() throws ApiException {
+    ApiClient apiClient = anApiClient(TEACHER1_TOKEN);
+    TeachingApi api = new TeachingApi(apiClient);
+
+    assertThrowsApiException(
+            "{\"type\":\"400 BAD_REQUEST\",\"message\":\"page value must be >=1\"}",
+            () -> api.getCourses(-1, 15, null, null, null,
+                    null, null, null, null));
   }
 
   static class ContextInitializer extends AbstractContextInitializer {
